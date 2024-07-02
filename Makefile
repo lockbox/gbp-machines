@@ -16,7 +16,6 @@ chroot := docker run \
   --env FEATURES="-cgroup -ipc-sandbox -mount-sandbox -network-sandbox -pid-sandbox -userfetch -usersync binpkg-multi-instance buildpkg noinfo unmerge-orphans" \
   --cap-add=CAP_SYS_PTRACE \
   --volume /proc:/proc \
-  --volume "$(CURDIR)"/Makefile.container:/Makefile.gbp \
   $(container)
   
 config := $(notdir $(wildcard $(machine)/configs/*))
@@ -68,6 +67,8 @@ gbp.json: world
 
 
 chroot: $(repos_targets) $(config_targets)  ## Build the chroot in the container
+	docker cp "$(CURDIR)"/Makefile.container $(container):/Makefile.gbp
+	docker commit $(container) $(container)
 	-docker rm $(container) || true
 	$(chroot) make -C / -f Makefile.gbp cache
 	docker commit $(container) $(container)
