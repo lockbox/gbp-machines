@@ -2,20 +2,23 @@
 .SHELLFLAGS := -eu -o pipefail -c
 .DEFAULT_GOAL := world
 
-machine ?= gbpbox
+machine ?= base
 build ?= 1
 BUILD_PUBLISHER_URL ?= http://gbp/
 
 archive := build.tar.gz
 container := $(machine)-root
-chroot := buildah run \
+chroot := docker run \
+  --name $(container) \
   --env=BUILD_HOST=$(shell uname -n) \
   --env=BUILD_MACHINE=$(machine) \
   --env=BUILD_NUMBER=$(BUILD_NUMBER) \
+  --env FEATURES="-cgroup -ipc-sandbox -mount-sandbox -network-sandbox -pid-sandbox -userfetch -usersync binpkg-multi-instance buildpkg noinfo unmerge-orphans" \
+  --cap-add=CAP_SYS_PTRACE \
   --volume /proc:/proc \
   --volume "$(CURDIR)"/Makefile.container:/Makefile.gbp \
-  --mount=type=tmpfs,tmpfs-mode=755,destination=/run $(container) \
-  --
+  --mount=type=tmpfs,tmpfs-mode=755,destination=/run $(container)
+  
 config := $(notdir $(wildcard $(machine)/configs/*))
 config_targets := $(config:=.copy_config)
 repos_dir := /var/db/repos
@@ -33,9 +36,9 @@ platform-config := $(machine)/arch
 container: stage3-image := docker.io/gentoo/stage3:$(shell cat $(stage3-config))
 container: platform := linux/$(shell cat $(platform-config))
 container: $(stage3-config) $(platform-config)  ## Build the container
-	-buildah rm $(container)
-	buildah --name $(container) from --platform=$(platform) --cap-add=CAP_SYS_PTRACE $(stage3-image)
-	buildah config --env FEATURES="-cgroup -ipc-sandbox -mount-sandbox -network-sandbox -pid-sandbox -userfetch -usersync binpkg-multi-instance buildpkg noinfo unmerge-orphans" $(container)
+	-docker rm $(container) || true
+	docker create --name $(container) --cap-add=CAP_SYS_PTRACE --env FEATURES="-cgroup -ipc-sandbox -mount-sandbox -network-sandbox -pid-sandbox -userfetch -usersync binpkg-multi-instance buildpkg noinfo unmerge-orphans" $(stage3-image)
+	docker commit $(container) $(container)
 	touch $@
 
 
@@ -45,8 +48,10 @@ gbp.json: world
 
 
 %.add_repo: %-repo.tar.gz container
-	buildah unshare --mount CHROOT=$(container) sh -c 'rm -rf $$CHROOT$(repos_dir)/$*'
-	buildah add $(container) $(CURDIR)/$< $(repos_dir)/$*
+	-docker rm $(container) || true
+	docker run --name $(container) $(container) sh -c 'rm -rf $(repos_dir)/$* && mkdir -p $(repos_dir)/$*'
+	gzip -cd $(CURDIR)/$< | docker cp - $(container):$(repos_dir)/$*
+	docker commit $(container) $(container)
 	touch $@
 
 
@@ -54,18 +59,25 @@ gbp.json: world
 %.copy_config: dirname = $(subst -,/,$*)
 %.copy_config: files = $(shell find $(machine)/configs/$* ! -type l -print)
 %.copy_config: $$(files) container
-	buildah unshare --mount CHROOT=$(container) sh -c 'rm -rf $$CHROOT/$(dirname)'
-	buildah copy $(container) "$(CURDIR)"/$(machine)/configs/$* /$(dirname)
+	-docker rm $(container) || true
+	docker run --name $(container) $(container) sh -c 'rm -rf /$(dirname) && mkdir -p /$(dirname)'
+	docker commit $(container) $(container) && docker rm $(container)
+	tar cf - -C "$(CURDIR)"/$(machine)/configs/$* . | docker run -i --name $(container) $(container) tar xvf - -C /$(dirname)
+	docker commit $(container) $(container)
 	touch $@
 
 
 chroot: $(repos_targets) $(config_targets)  ## Build the chroot in the container
+	-docker rm $(container) || true
 	$(chroot) make -C / -f Makefile.gbp cache
+	docker commit $(container) $(container)
 	touch $@
 
 
 world: chroot  ## Update @world and remove unneeded pkgs & binpkgs
+	-docker rm $(container) || true
 	$(chroot) make -C / -f Makefile.gbp world
+	docker commit $(container) $(container)
 	touch $@
 
 
@@ -133,7 +145,7 @@ machine-list:  ## Display the list of machines
 
 .PHONY: clean-container
 clean-container:  ## Remove the container
-	-buildah delete $(container)
+	-docker rm $(container) || true
 	rm -f container
 
 
