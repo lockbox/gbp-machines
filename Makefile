@@ -37,6 +37,7 @@ container: platform := linux/$(shell cat $(platform-config))
 container: $(stage3-config) $(platform-config)  ## Build the container
 	-docker rm $(container) || true
 	docker create --name $(container) --cap-add=CAP_SYS_PTRACE --env FEATURES="-cgroup -ipc-sandbox -mount-sandbox -network-sandbox -pid-sandbox -userfetch -usersync binpkg-multi-instance buildpkg noinfo unmerge-orphans" $(stage3-image)
+	docker cp "$(CURDIR)"/Makefile.container $(container):/Makefile.gbp
 	docker commit $(container) $(container)
 	touch $@
 
@@ -67,8 +68,6 @@ gbp.json: world
 
 
 chroot: $(repos_targets) $(config_targets)  ## Build the chroot in the container
-	docker cp "$(CURDIR)"/Makefile.container $(container):/Makefile.gbp
-	docker commit $(container) $(container)
 	-docker rm $(container) || true
 	$(chroot) make -C / -f Makefile.gbp cache
 	docker commit $(container) $(container)
