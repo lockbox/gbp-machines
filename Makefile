@@ -4,7 +4,7 @@
 
 machine ?= gbpbox
 build ?= 1
-BUILD_PUBLISHER_URL ?= http://localhost/
+BUILD_PUBLISHER_URL ?= http://gbp/
 
 archive := build.tar.gz
 container := $(machine)-root
