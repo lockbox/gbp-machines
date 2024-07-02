@@ -17,7 +17,7 @@ chroot := docker run \
   --cap-add=CAP_SYS_PTRACE \
   --volume /proc:/proc \
   --volume "$(CURDIR)"/Makefile.container:/Makefile.gbp \
-  --mount=type=tmpfs,tmpfs-mode=755,destination=/run $(container)
+  $(container)
   
 config := $(notdir $(wildcard $(machine)/configs/*))
 config_targets := $(config:=.copy_config)
