@@ -4,7 +4,7 @@
 
 machine ?= base
 build ?= 1
-BUILD_PUBLISHER_URL ?= http://gbp/
+BUILD_PUBLISHER_URL ?= http://gbp:8000/
 
 archive := build.tar.gz
 container := $(machine)-root
