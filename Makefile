@@ -94,14 +94,18 @@ container.img: packages
 .PHONY: archive
 archive: $(archive)  ## Create the build artifact
 
+ARCHIVE_TMPDIR=$(shell mktemp -d)
 
 $(archive): gbp.json
 	tar cvf build.tar --files-from /dev/null
 	tar --append -f build.tar -C $(machine)/configs .
-	buildah copy $(container) gbp.json /var/db/repos/gbp.json
-	buildah unshare --mount CHROOT=$(container) sh -c 'tar --append -f build.tar -C $${CHROOT}/var/db repos'
-	buildah unshare --mount CHROOT=$(container) sh -c 'tar --append -f build.tar -C $${CHROOT}/var/cache binpkgs'
-	rm -f $@
+	-docker rm $(container) || true
+	docker create --name $(container) $(container)
+	docker cp gbp.json $(container):/var/db/repos/gbp.json
+	docker cp $(container):/var/db/repos $(ARCHIVE_TMPDIR)/
+	docker cp $(container):/var/cache/binpkgs $(ARCHIVE_TMPDIR)/
+	tar --append -f build.tar -C $(ARCHIVE_TMPDIR) .
+	rm -rf $@ $(ARCHIVE_TMPDIR)
 	gzip build.tar
 
 
@@ -116,10 +120,13 @@ emerge-info.txt: chroot
 	$(chroot) make -C / -f Makefile.gbp emerge-info > .$@
 	mv .$@ $@
 
+gentoo-build-publisher:
+	git clone https://github.com/enku/gentoo-build-publisher.git
+	pushd gentoo-build-publisher && pip install . && popd
 
-push: packages  ## Push artifact (to GBP)
+push: packages gentoo-build-publisher ## Push artifact (to GBP)
 	$(MAKE) machine=$(machine) build=$(build) $(archive)
-	gbp --url=$(BUILD_PUBLISHER_URL) pull $(machine) $(build)
+	gbp --url=$(BUILD_PUBLISHER_URL) publish $(machine) $(build)
 	touch $@
 
 
@@ -151,7 +158,7 @@ clean-container:  ## Remove the container
 
 .PHONY: clean
 clean: clean-container  ## Clean project files
-	rm -rf build.tar $(archive) container container.img packages world *.add_repo chroot *.copy_config $(stage4) gbp.json push
+	rm -rf build.tar $(archive) container container.img packages world *.add_repo chroot *.copy_config $(stage4) gbp.json push gentoo-build-publisher
 
 
 .PHONY: help
