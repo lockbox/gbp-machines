@@ -82,7 +82,8 @@ world: chroot  ## Update @world and remove unneeded pkgs & binpkgs
 
 
 packages: world
-	buildah unshare --mount CHROOT=$(container) sh -c 'touch -r $${CHROOT}/var/cache/binpkgs/Packages $@'
+	# TODO: why is this necessary? Looks like a hack to update the timestamp of the Packages file
+	#buildah unshare --mount CHROOT=$(container) sh -c 'touch -r $${CHROOT}/var/cache/binpkgs/Packages $@'
 
 
 container.img: packages
