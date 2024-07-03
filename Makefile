@@ -123,9 +123,12 @@ emerge-info.txt: chroot
 
 gentoo-build-publisher:
 	git clone https://github.com/enku/gentoo-build-publisher.git
-	pushd gentoo-build-publisher && pip install . && popd
 
-push: packages gentoo-build-publisher ## Push artifact (to GBP)
+gentoo-build-publisher/installed: gentoo-build-publisher
+	pushd gentoo-build-publisher && pip install . --break-system-packages && popd
+	touch $@
+
+push: packages gentoo-build-publisher/installed ## Push artifact (to GBP)
 	$(MAKE) machine=$(machine) build=$(build) $(archive)
 	gbp --url=$(BUILD_PUBLISHER_URL) publish $(machine) $(build)
 	touch $@
