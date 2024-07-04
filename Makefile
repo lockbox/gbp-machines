@@ -131,7 +131,7 @@ gentoo-build-publisher/installed: gentoo-build-publisher
 push: packages gentoo-build-publisher/installed ## Push artifact (to GBP)
 	$(MAKE) machine=$(machine) build=$(build) $(archive)
 	# HACK workaround the cli doing a lot of unnecessary work
-	env $(shell cat /etc/gentoo-build-publisher.conf | xargs) gbp --url=$(BUILD_PUBLISHER_URL) publish $(machine) $(build)
+	env $(shell cat /etc/gentoo-build-publisher.conf | xargs) gbp --url=$(BUILD_PUBLISHER_URL) pull $(machine) $(build)
 	touch $@
 
 
