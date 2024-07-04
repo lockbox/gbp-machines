@@ -125,7 +125,7 @@ gentoo-build-publisher:
 	git clone https://github.com/enku/gentoo-build-publisher.git
 
 gentoo-build-publisher/installed: gentoo-build-publisher
-	cd gentoo-build-publisher && pip install . --break-system-packages && pip install --break-system-packages psycopg && cd ..
+	cd gentoo-build-publisher && pip install . --break-system-packages && pip install --break-system-packages psycopg redis Redis && cd ..
 	touch $@
 
 push: packages gentoo-build-publisher/installed ## Push artifact (to GBP)
